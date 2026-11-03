@@ -1,0 +1,36 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test
+        run: swift test
+      - name: Build app
+        run: ./scripts/build-app.sh
+      - name: Verify and package
+        run: |
+          codesign --verify --deep --strict dist/HostsMgr.app
+          ditto -c -k --sequesterRsrc --keepParent dist/HostsMgr.app "dist/HostsMgr-macos-$(uname -m).zip"
+          cd dist
+          shasum -a 256 HostsMgr-macos-*.zip > SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: HostsMgr-macos
+          path: |
+            dist/HostsMgr-macos-*.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
